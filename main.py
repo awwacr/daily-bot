@@ -5,10 +5,10 @@ import requests
 import schedule
 from http.server import HTTPServer, BaseHTTPRequestHandler
 
-BOT_TOKEN = os.environ.get("BOT_TOKEN", "8810079431:AAHe077hsXsje5o4m-adQnvwFnWs4r03hjA")
-CHAT_ID = os.environ.get("CHAT_ID", "1406966655")
+# Жёстко прописываем ключи, чтобы исключить ошибки переменных окружения
+BOT_TOKEN = "8810079431:AAHe077hsXsje5o4m-adQnvwFnWs4r03hjA"
+CHAT_ID = "1406966655"
 
-# Веб-сервер для поддержки статуса Live на Render
 class SimpleHTTPRequestHandler(BaseHTTPRequestHandler):
     def do_GET(self):
         self.send_response(200)
@@ -25,7 +25,6 @@ def run_web_server():
     server.serve_forever()
 
 def get_cbu_rates():
-    """100% точные официальные курсы ЦБ РУз"""
     url = "https://cbu.uz/ru/arkhiv-kursov-valyut/json/"
     headers = {'User-Agent': 'Mozilla/5.0'}
     try:
@@ -41,11 +40,10 @@ def get_cbu_rates():
                 }
         return rates
     except Exception as e:
-        print(f"Ошибка получения курсов ЦБ РУз: {e}")
+        print(f"Ошибка ЦБ: {e}")
         return None
 
 def get_tashkent_weather():
-    """Погода в Ташкенте"""
     url = "https://api.open-meteo.com/v1/forecast?latitude=41.2995&longitude=69.2401&current_weather=true&daily=temperature_2m_max,temperature_2m_min&timezone=Asia/Tashkent"
     try:
         response = requests.get(url, timeout=10)
@@ -56,10 +54,11 @@ def get_tashkent_weather():
             "min": round(data["daily"]["temperature_2m_min"][0])
         }
     except Exception as e:
-        print(f"Ошибка получения погоды: {e}")
+        print(f"Ошибка погоды: {e}")
         return None
 
 def send_daily_report():
+    print(">>> ЗАПУСКАЕМ ОТПРАВКУ ОТЧЕТА В TELEGRAM...")
     rates = get_cbu_rates()
     weather = get_tashkent_weather()
     
@@ -100,26 +99,22 @@ def send_daily_report():
     
     try:
         res = requests.post(url, data=payload)
-        if res.status_code == 200:
-            print("Отчет успешно отправлен в Telegram!")
-        else:
-            print(f"Ошибка Telegram API: {res.text}")
+        print(f">>> ОТВЕТ ОТ TELEGRAM: Код {res.status_code}, Текст: {res.text}")
     except Exception as e:
-        print(f"Ошибка запроса: {e}")
+        print(f">>> ОШИБКА ЗАПРОСА К TELEGRAM: {e}")
 
 def run_scheduler():
-    # Ежедневный запуск на 08:30 утра по Ташкенту
     schedule.every().day.at("08:30").do(send_daily_report)
     while True:
         schedule.run_pending()
         time.sleep(60)
 
 if __name__ == "__main__":
-    # 1. Прямой мгновенный вызов при старте
+    # Вызываем отправку сразу
     send_daily_report()
     
-    # 2. Запуск фонового планировщика
+    # Запускаем фоновый таймер
     threading.Thread(target=run_scheduler, daemon=True).start()
     
-    # 3. Запуск веб-сервера для Render
+    # Запускаем веб-сервер
     run_web_server()
