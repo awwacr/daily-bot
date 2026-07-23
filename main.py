@@ -1,12 +1,14 @@
 import os
+import time
 import requests
+import schedule
 
-# Забираем токен и ID из настроек Render (для безопасности)
+# Данные берутся из переменных или используются по умолчанию
 BOT_TOKEN = os.environ.get("BOT_TOKEN", "8810079431:AAHe077hsXsje5o4m-adQnvwFnWs4r03hjA")
 CHAT_ID = os.environ.get("CHAT_ID", "1406966655")
 
 def get_cbu_rates():
-    """Получаем 100% точные курсы ЦБ РУз прямо с cbu.uz"""
+    """Получаем 100% точные официальные курсы ЦБ РУз прямо с cbu.uz"""
     url = "https://cbu.uz/ru/arkhiv-kursov-valyut/json/"
     headers = {'User-Agent': 'Mozilla/5.0'}
     try:
@@ -92,4 +94,12 @@ def send_daily_report():
         print(f"Ошибка отправки: {e}")
 
 if __name__ == "__main__":
+    # Сразу при запуске отправляем сообщение в Telegram
     send_daily_report()
+    
+    # Расписание: каждый день в 08:30 утра по Ташкенту
+    schedule.every().day.at("08:30").do(send_daily_report)
+    
+    while True:
+        schedule.run_pending()
+        time.sleep(60)
