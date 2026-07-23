@@ -110,11 +110,14 @@ def run_scheduler():
         time.sleep(60)
 
 if __name__ == "__main__":
-    # Вызываем отправку сразу
+    # 1. Запускаем веб-сервер в ОТДЕЛЬНОМ фоновом потоке (чтобы он не блокировал код!)
+    threading.Thread(target=run_web_server, daemon=True).start()
+    
+    # 2. Мгновенно отправляем отчет в Telegram
     send_daily_report()
     
-    # Запускаем фоновый таймер
-    threading.Thread(target=run_scheduler, daemon=True).start()
-    
-    # Запускаем веб-сервер
-    run_web_server()
+    # 3. Запускаем планировщик расписания в основном цикле
+    schedule.every().day.at("08:30").do(send_daily_report)
+    while True:
+        schedule.run_pending()
+        time.sleep(60)
