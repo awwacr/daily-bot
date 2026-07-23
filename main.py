@@ -1,28 +1,10 @@
 import os
 import time
-import threading
 import requests
 import schedule
-from http.server import HTTPServer, BaseHTTPRequestHandler
 
-# Жёстко прописываем ключи, чтобы исключить ошибки переменных окружения
 BOT_TOKEN = "8810079431:AAHe077hsXsje5o4m-adQnvwFnWs4r03hjA"
 CHAT_ID = "1406966655"
-
-class SimpleHTTPRequestHandler(BaseHTTPRequestHandler):
-    def do_GET(self):
-        self.send_response(200)
-        self.end_headers()
-        self.wfile.write(b"Bot is active!")
-
-    def do_HEAD(self):
-        self.send_response(200)
-        self.end_headers()
-
-def run_web_server():
-    port = int(os.environ.get("PORT", 8080))
-    server = HTTPServer(('0.0.0.0', port), SimpleHTTPRequestHandler)
-    server.serve_forever()
 
 def get_cbu_rates():
     url = "https://cbu.uz/ru/arkhiv-kursov-valyut/json/"
@@ -58,7 +40,7 @@ def get_tashkent_weather():
         return None
 
 def send_daily_report():
-    print(">>> ЗАПУСКАЕМ ОТПРАВКУ ОТЧЕТА В TELEGRAM...")
+    print("Отправка отчета в Telegram...")
     rates = get_cbu_rates()
     weather = get_tashkent_weather()
     
@@ -99,24 +81,15 @@ def send_daily_report():
     
     try:
         res = requests.post(url, data=payload)
-        print(f">>> ОТВЕТ ОТ TELEGRAM: Код {res.status_code}, Текст: {res.text}")
+        print(f"Ответ Telegram API: {res.status_code} - {res.text}")
     except Exception as e:
-        print(f">>> ОШИБКА ЗАПРОСА К TELEGRAM: {e}")
-
-def run_scheduler():
-    schedule.every().day.at("08:30").do(send_daily_report)
-    while True:
-        schedule.run_pending()
-        time.sleep(60)
+        print(f"Ошибка отправки: {e}")
 
 if __name__ == "__main__":
-    # 1. Запускаем веб-сервер в ОТДЕЛЬНОМ фоновом потоке (чтобы он не блокировал код!)
-    threading.Thread(target=run_web_server, daemon=True).start()
-    
-    # 2. Мгновенно отправляем отчет в Telegram
+    # Сразу отправляем тестовый отчет
     send_daily_report()
     
-    # 3. Запускаем планировщик расписания в основном цикле
+    # Запускаем планировщик
     schedule.every().day.at("08:30").do(send_daily_report)
     while True:
         schedule.run_pending()
