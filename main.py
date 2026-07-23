@@ -1,10 +1,28 @@
 import os
 import time
+import threading
 import requests
 import schedule
+from http.server import HTTPServer, BaseHTTPRequestHandler
 
 BOT_TOKEN = "8810079431:AAHe077hsXsje5o4m-adQnvwFnWs4r03hjA"
 CHAT_ID = "1406966655"
+
+# Простой HTTP-сервер для проходимости Health Check на Render
+class SimpleHTTPRequestHandler(BaseHTTPRequestHandler):
+    def do_GET(self):
+        self.send_response(200)
+        self.end_headers()
+        self.wfile.write(b"Bot is live!")
+
+    def do_HEAD(self):
+        self.send_response(200)
+        self.end_headers()
+
+def run_web_server():
+    port = int(os.environ.get("PORT", 8080))
+    server = HTTPServer(('0.0.0.0', port), SimpleHTTPRequestHandler)
+    server.serve_forever()
 
 def get_cbu_rates():
     url = "https://cbu.uz/ru/arkhiv-kursov-valyut/json/"
@@ -40,7 +58,6 @@ def get_tashkent_weather():
         return None
 
 def send_daily_report():
-    print("Отправка отчета в Telegram...")
     rates = get_cbu_rates()
     weather = get_tashkent_weather()
     
@@ -81,16 +98,23 @@ def send_daily_report():
     
     try:
         res = requests.post(url, data=payload)
-        print(f"Ответ Telegram API: {res.status_code} - {res.text}")
+        print(f"Ответ Telegram: {res.status_code}")
     except Exception as e:
-        print(f"Ошибка отправки: {e}")
+        print(f"Ошибка запроса: {e}")
 
-if __name__ == "__main__":
-    # Сразу отправляем тестовый отчет
+def bot_loop():
+    # Отправляем один тестовый отчет сразу при старте
     send_daily_report()
     
-    # Запускаем планировщик
+    # Ставим расписание каждый день на 08:30 по Ташкенту
     schedule.every().day.at("08:30").do(send_daily_report)
     while True:
         schedule.run_pending()
         time.sleep(60)
+
+if __name__ == "__main__":
+    # 1. Запускаем бота и расписание в ФОНОВОМ ПОТОКЕ (не мешает серверу)
+    threading.Thread(target=bot_loop, daemon=True).start()
+    
+    # 2. Запускаем веб-сервер в ГЛАВНОМ ПОТОКЕ (для Render Web Service)
+    run_web_server()
